@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PGN Private Call</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #121212; color: white; padding: 20px; }
+        .box { background: #1e1e1e; padding: 20px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #333; }
+        input { width: 80%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; }
+        button { padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; }
+        .call-btn { background: #28a745; color: white; }
+        .hangup-btn { background: #dc3545; color: white; margin-top: 10px; }
+        #my-id { color: #00d1ff; font-weight: bold; font-size: 1.2em; }
+    </style>
+</head>
+<body>
+
+    <h2>Private Voice Bridge</h2>
+
+    <div class="box">
+        <p>आपकी पहचान (ID): <span id="my-id">Connecting...</span></p>
+    </div>
+
+    <div class="box">
+        <input type="text" id="remote-id" placeholder="सामने वाले की ID डालें">
+        <br>
+        <button class="call-btn" onclick="startCall()">Call (Direct)</button>
+    </div>
+
+    <div id="status" style="color: yellow;"></div>
+    <audio id="remote-audio" autoplay></audio>
+    
+    <button id="end-btn" class="hangup-btn" style="display:none;" onclick="location.reload()">End Call</button>
+
+    <script>
+        const peer = new Peer(); // एक रैंडम ID जेनरेट करेगा
+        let currentCall;
+
+        // 1. जब आपकी ID मिल जाए
+        peer.on('open', (id) => {
+            document.getElementById('my-id').innerText = id;
+        });
+
+        // 2. कॉल रिसीव करना (Incoming)
+        peer.on('call', (call) => {
+            if (confirm("Incomming Private Call... क्या आप उठाना चाहते हैं?")) {
+                navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+                    call.answer(stream);
+                    handleCall(call);
+                });
+            }
+        });
+
+        // 3. कॉल करना (Outgoing)
+        function startCall() {
+            const remoteId = document.getElementById('remote-id').value;
+            if (!remoteId) return alert("ID डालें");
+
+            navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+                const call = peer.call(remoteId, stream);
+                handleCall(call);
+            });
+        }
+
+        function handleCall(call) {
+            document.getElementById('status').innerText = "Connecting...";
+            document.getElementById('end-btn').style.display = "inline-block";
+            
+            call.on('stream', (remoteStream) => {
+                const audio = document.getElementById('remote-audio');
+                audio.srcObject = remoteStream;
+                document.getElementById('status').innerText = "Call Active (Encrypted)";
+            });
+        }
+    </script>
+</body>
+</html>
