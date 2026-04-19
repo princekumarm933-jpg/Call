@@ -2,60 +2,93 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PGN Private Call</title>
+    <title>PGN Multi-Bridge</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #121212; color: white; padding: 20px; }
-        .box { background: #1e1e1e; padding: 20px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #333; }
-        input { width: 80%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; }
-        button { padding: 10px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; }
-        .call-btn { background: #28a745; color: white; }
-        .hangup-btn { background: #dc3545; color: white; margin-top: 10px; }
-        #my-id { color: #00d1ff; font-weight: bold; font-size: 1.2em; }
+        body { font-family: sans-serif; text-align: center; background: #0a0a0a; color: #00ff00; padding: 15px; }
+        .container { border: 2px solid #00ff00; padding: 20px; border-radius: 15px; background: #111; }
+        .id-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+        .id-btn { background: #222; color: #00ff00; border: 1px solid #00ff00; padding: 10px; cursor: pointer; border-radius: 5px; font-size: 12px; }
+        .selected { background: #00ff00 !important; color: #000 !important; font-weight: bold; }
+        input { width: 85%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #00ff00; background: #000; color: #00ff00; }
+        .call-btn { width: 100%; padding: 15px; background: #00ff00; color: #000; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        #status { margin-top: 15px; color: cyan; font-size: 14px; }
+        .my-id-box { color: yellow; font-size: 1.1em; border: 1px dashed yellow; padding: 10px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-    <h2>Private Voice Bridge</h2>
+    <div class="container">
+        <h2>PGN Fixed ID System</h2>
+        
+        <div class="my-id-box">आपकी Active ID: <br><span id="current-id">No ID Selected</span></div>
 
-    <div class="box">
-        <p>आपकी पहचान (ID): <span id="my-id">Connecting...</span></p>
+        <p>अपनी एक ID चुनें (दोस्त से अलग चुनें):</p>
+        <div class="id-grid" id="id-selector">
+            </div>
+
+        <hr border="1" color="#333">
+        
+        <p>सामने वाले की ID डालें:</p>
+        <input type="text" id="remote-id" placeholder="Ex: pgn-user-2">
+        
+        <button class="call-btn" id="call-btn" onclick="startCall()">START SECURE CALL</button>
+        <div id="status">सर्वर से जुड़ने के लिए ऊपर एक ID चुनें</div>
     </div>
 
-    <div class="box">
-        <input type="text" id="remote-id" placeholder="सामने वाले की ID डालें">
-        <br>
-        <button class="call-btn" onclick="startCall()">Call (Direct)</button>
-    </div>
-
-    <div id="status" style="color: yellow;"></div>
     <audio id="remote-audio" autoplay></audio>
-    
-    <button id="end-btn" class="hangup-btn" style="display:none;" onclick="location.reload()">End Call</button>
 
     <script>
-        const peer = new Peer(); // एक रैंडम ID जेनरेट करेगा
-        let currentCall;
+        let peer = null;
+        const idList = [];
+        // 10 IDs बनाना
+        for(let i=1; i<=10; i++) idList.push(`pgn-user-${i}`);
 
-        // 1. जब आपकी ID मिल जाए
-        peer.on('open', (id) => {
-            document.getElementById('my-id').innerText = id;
+        const grid = document.getElementById('id-selector');
+        idList.forEach(id => {
+            let btn = document.createElement('button');
+            btn.className = 'id-btn';
+            btn.innerText = id;
+            btn.onclick = () => initPeer(id, btn);
+            grid.appendChild(btn);
         });
 
-        // 2. कॉल रिसीव करना (Incoming)
-        peer.on('call', (call) => {
-            if (confirm("Incomming Private Call... क्या आप उठाना चाहते हैं?")) {
-                navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-                    call.answer(stream);
-                    handleCall(call);
-                });
-            }
-        });
+        function initPeer(selectedId, btnElement) {
+            if(peer) peer.destroy();
+            
+            // UI Update
+            document.querySelectorAll('.id-btn').forEach(b => b.classList.remove('selected'));
+            btnElement.classList.add('selected');
+            document.getElementById('current-id').innerText = selectedId;
+            document.getElementById('status').innerText = "Connecting to P2P Server...";
 
-        // 3. कॉल करना (Outgoing)
+            peer = new Peer(selectedId);
+
+            peer.on('open', (id) => {
+                document.getElementById('status').innerText = "System Online: Ready for Call";
+            });
+
+            peer.on('call', (call) => {
+                if (confirm("Incoming Call on " + selectedId + ". Accept?")) {
+                    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+                        call.answer(stream);
+                        handleCall(call);
+                    });
+                }
+            });
+
+            peer.on('error', (err) => {
+                if(err.type === 'unavailable-id') {
+                    alert("यह ID व्यस्त है! कृपया कोई दूसरी नंबर वाली ID चुनें।");
+                    location.reload();
+                }
+            });
+        }
+
         function startCall() {
-            const remoteId = document.getElementById('remote-id').value;
-            if (!remoteId) return alert("ID डालें");
+            if(!peer) return alert("पहले अपनी एक ID चुनें!");
+            const remoteId = document.getElementById('remote-id').value.trim();
+            if (!remoteId) return alert("सामने वाले की ID डालें");
 
             navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
                 const call = peer.call(remoteId, stream);
@@ -64,13 +97,10 @@
         }
 
         function handleCall(call) {
-            document.getElementById('status').innerText = "Connecting...";
-            document.getElementById('end-btn').style.display = "inline-block";
-            
+            document.getElementById('status').innerText = "Connecting... Encrypting Line";
             call.on('stream', (remoteStream) => {
-                const audio = document.getElementById('remote-audio');
-                audio.srcObject = remoteStream;
-                document.getElementById('status').innerText = "Call Active (Encrypted)";
+                document.getElementById('remote-audio').srcObject = remoteStream;
+                document.getElementById('status').innerText = "Call Active (PGN Private Bridge)";
             });
         }
     </script>
