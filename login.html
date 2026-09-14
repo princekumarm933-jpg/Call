@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="hi">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width,initial-scale=1.0">
+
+<title>PENCIL — Identity</title>
+
+<style>
+
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+    font-family:Arial,sans-serif;
+}
+
+:root{
+
+    --bg:#0b0f0d;
+    --panel:#121a16;
+    --border:#26382e;
+    --green:#00e676;
+    --text:#ecfff3;
+    --muted:#8ca497;
+    --danger:#ff4057;
+
+}
+
+body{
+
+    min-height:100vh;
+
+    background:var(--bg);
+
+    color:var(--text);
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    padding:20px;
+
+}
+
+.box{
+
+    width:min(420px,100%);
+
+    background:var(--panel);
+
+    border:1px solid var(--border);
+
+    border-radius:18px;
+
+    padding:25px;
+
+    box-shadow:
+        0 15px 50px rgba(0,0,0,.35);
+
+}
+
+.logo{
+
+    text-align:center;
+
+    color:var(--green);
+
+    font-size:28px;
+
+    font-weight:800;
+
+    letter-spacing:2px;
+
+}
+
+.subtitle{
+
+    text-align:center;
+
+    color:var(--muted);
+
+    margin:8px 0 25px;
+
+    font-size:13px;
+
+}
+
+h3{
+
+    margin-bottom:15px;
+
+}
+
+label{
+
+    display:block;
+
+    margin:14px 0 7px;
+
+    color:#b8cfc2;
+
+    font-size:13px;
+
+}
+
+input,
+button{
+
+    width:100%;
+
+    padding:12px 14px;
+
+    border-radius:9px;
+
+    font:inherit;
+
+}
+
+input{
+
+    background:#09100c;
+
+    color:white;
+
+    border:1px solid var(--border);
+
+    outline:none;
+
+}
+
+input:focus{
+
+    border-color:var(--green);
+
+}
+
+button{
+
+    margin-top:18px;
+
+    border:0;
+
+    background:var(--green);
+
+    color:#001b0b;
+
+    font-weight:bold;
+
+    cursor:pointer;
+
+}
+
+button:hover{
+
+    filter:brightness(1.08);
+
+}
+
+.profile{
+
+    display:none;
+
+}
+
+.id-box{
+
+    margin-top:18px;
+
+    padding:13px;
+
+    border:1px solid var(--border);
+
+    border-radius:10px;
+
+    background:#09100c;
+
+}
+
+.id-label{
+
+    color:var(--muted);
+
+    font-size:11px;
+
+}
+
+.id-value{
+
+    margin-top:5px;
+
+    color:var(--green);
+
+    font-family:monospace;
+
+    font-size:15px;
+
+    word-break:break-all;
+
+}
+
+.secondary{
+
+    background:#1a2820;
+
+    color:white;
+
+    border:1px solid var(--border);
+
+}
+
+.danger{
+
+    background:transparent;
+
+    color:var(--danger);
+
+    border:1px solid #59303a;
+
+}
+
+.note{
+
+    margin-top:15px;
+
+    color:var(--muted);
+
+    font-size:11px;
+
+    line-height:1.5;
+
+    text-align:center;
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div class="box">
+
+
+    <!-- =========================
+         PENCIL HEADER
+    ========================== -->
+
+    <div class="logo">
+
+        PENCIL
+
+    </div>
+
+
+    <div class="subtitle">
+
+        Permanent Device Identity
+
+    </div>
+
+
+
+    <!-- =========================
+         FIRST REGISTRATION
+    ========================== -->
+
+    <div id="registerPanel">
+
+
+        <h3>
+
+            Create Your PENCIL ID
+
+        </h3>
+
+
+        <!-- NAME -->
+
+        <label>
+
+            Name
+
+        </label>
+
+
+        <input
+            type="text"
+            id="userName"
+            placeholder="Enter your name"
+            maxlength="40"
+            autocomplete="name"
+        >
+
+
+
+        <!-- STATE -->
+
+        <label>
+
+            State Code (2 Letters)
+
+        </label>
+
+
+        <input
+            type="text"
+            id="userState"
+            placeholder="Example: BR / TG"
+            maxlength="2"
+            autocomplete="off"
+        >
+
+
+
+        <!-- CREATE -->
+
+        <button onclick="createAccount()">
+
+            Create Permanent ID & Enter
+
+        </button>
+
+
+        <div class="note">
+
+            Your PENCIL ID is generated once
+            and remains unchanged even if
+            you change your name later.
+
+        </div>
+
+
+    </div>
+
+
+
+    <!-- =========================
+         EXISTING PROFILE
+    ========================== -->
+
+    <div
+        id="profilePanel"
+        class="profile"
+    >
+
+
+        <h3>
+
+            My PENCIL Profile
+
+        </h3>
+
+
+
+        <!-- PERMANENT ID -->
+
+        <div class="id-box">
+
+
+            <div class="id-label">
+
+                PERMANENT UNIQUE ID
+
+            </div>
+
+
+            <div
+                class="id-value"
+                id="profileId"
+            >
+
+                --
+
+            </div>
+
+
+        </div>
+
+
+
+        <!-- NAME -->
+
+        <label>
+
+            Name
+
+        </label>
+
+
+        <input
+            type="text"
+            id="profileName"
+            maxlength="40"
+        >
+
+
+
+        <!-- STATE -->
+
+        <label>
+
+            State
+
+        </label>
+
+
+        <input
+            type="text"
+            id="profileState"
+            maxlength="2"
+        >
+
+
+
+        <!-- SAVE -->
+
+        <button onclick="saveProfile()">
+
+            Save Profile
+
+        </button>
+
+
+
+        <!-- ENTER -->
+
+        <button
+            class="secondary"
+            onclick="enterPencil()"
+        >
+
+            Enter PENCIL
+
+        </button>
+
+
+
+        <!-- RESET -->
+
+        <button
+            class="danger"
+            onclick="logoutDevice()"
+        >
+
+            Reset Device Identity
+
+        </button>
+
+
+
+        <div class="note">
+
+            ID cannot be edited.
+            Name can be changed.
+
+        </div>
+
+
+    </div>
+
+
+</div>
+
+
+
+<script>
+
+
+/* =========================================
+   STORAGE KEY
+========================================= */
+
+const STORAGE_KEY =
+    "permanent_device_identity";
+
+
+
+/* =========================================
+   GENERATE PERMANENT UNIQUE ID
+========================================= */
+
+function generatePermanentID(state){
+
+
+    const cleanState =
+
+        state
+            .toUpperCase()
+            .replace(/[^A-Z]/g,"")
+            .slice(0,2);
+
+
+
+    let randomPart = "";
+
+
+
+    /*
+       Modern browsers:
+       crypto.getRandomValues()
+    */
+
+    if(
+        window.crypto &&
+        crypto.getRandomValues
+    ){
+
+
+        const bytes =
+            new Uint8Array(8);
+
+
+        crypto.getRandomValues(bytes);
+
+
+        randomPart =
+
+            Array.from(bytes)
+
+                .map(
+                    b =>
+                    b
+                    .toString(16)
+                    .padStart(2,"0")
+                )
+
+                .join("")
+
+                .toUpperCase()
+
+                .slice(0,12);
+
+
+    }else{
+
+
+        /*
+           Fallback
+        */
+
+        randomPart =
+
+            Math.random()
+
+                .toString(36)
+
+                .substring(2,14)
+
+                .toUpperCase();
+
+    }
+
+
+
+    /*
+       IMPORTANT:
+
+       Name is NOT included
+       in this ID.
+
+       Therefore name can
+       change later.
+    */
+
+    return `IN-${cleanState}-${randomPart}`;
+
+}
+
+
+
+/* =========================================
+   LOAD PROFILE
+========================================= */
+
+function loadProfile(){
+
+
+    const saved =
+
+        localStorage.getItem(
+            STORAGE_KEY
+        );
+
+
+
+    /*
+       No account
+    */
+
+    if(!saved){
+
+
+        document
+            .getElementById(
+                "registerPanel"
+            )
+            .style.display = "block";
+
+
+        document
+            .getElementById(
+                "profilePanel"
+            )
+            .style.display = "none";
+
+
+        return;
+
+    }
+
+
+
+    /*
+       Existing account
+    */
+
+    try{
+
+
+        const profile =
+            JSON.parse(saved);
+
+
+
+        document
+            .getElementById(
+                "registerPanel"
+            )
+            .style.display = "none";
+
+
+        document
+            .getElementById(
+                "profilePanel"
+            )
+            .style.display = "block";
+
+
+
+        document
+            .getElementById(
+                "profileId"
+            )
+            .innerText =
+                profile.id || "--";
+
+
+
+        document
+            .getElementById(
+                "profileName"
+            )
+            .value =
+                profile.name || "";
+
+
+
+        document
+            .getElementById(
+                "profileState"
+            )
+            .value =
+                profile.state || "";
+
+
+    }catch(error){
+
+
+        /*
+           Broken profile
+        */
+
+        localStorage.removeItem(
+            STORAGE_KEY
+        );
+
+
+        document
+            .getElementById(
+                "registerPanel"
+            )
+            .style.display = "block";
+
+    }
+
+}
+
+
+
+/* =========================================
+   CREATE ACCOUNT
+========================================= */
+
+function createAccount(){
+
+
+    const name =
+
+        document
+            .getElementById(
+                "userName"
+            )
+            .value
+            .trim();
+
+
+
+    const state =
+
+        document
+            .getElementById(
+                "userState"
+            )
+            .value
+            .trim()
+            .toUpperCase();
+
+
+
+    /*
+       NAME CHECK
+    */
+
+    if(!name){
+
+        alert(
+            "Name enter करें."
+        );
+
+        return;
+
+    }
+
+
+
+    /*
+       STATE CHECK
+    */
+
+    if(
+        !/^[A-Z]{2}$/.test(state)
+    ){
+
+        alert(
+            "State Code केवल 2 English letters होना चाहिए.\n\nExample: BR या TG"
+        );
+
+        return;
+
+    }
+
+
+
+    /*
+       CREATE ID
+
+       This happens ONLY ONCE.
+    */
+
+    const id =
+        generatePermanentID(state);
+
+
+
+    /*
+       PROFILE OBJECT
+    */
+
+    const profile = {
+
+        id: id,
+
+        name: name,
+
+        state: state,
+
+        createdAt: Date.now(),
+
+        updatedAt: Date.now()
+
+    };
+
+
+
+    /*
+       SAVE
+    */
+
+    localStorage.setItem(
+
+        STORAGE_KEY,
+
+        JSON.stringify(profile)
+
+    );
+
+
+
+    /*
+       ENTER MAIN APP
+    */
+
+    enterPencil();
+
+}
+
+
+
+/* =========================================
+   SAVE PROFILE
+========================================= */
+
+function saveProfile(){
+
+
+    const saved =
+
+        localStorage.getItem(
+            STORAGE_KEY
+        );
+
+
+
+    if(!saved){
+
+        alert(
+            "Profile not found."
+        );
+
+        return;
+
+    }
+
+
+
+    try{
+
+
+        const profile =
+            JSON.parse(saved);
+
+
+
+        /*
+           NEW NAME
+        */
+
+        const name =
+
+            document
+                .getElementById(
+                    "profileName"
+                )
+                .value
+                .trim();
+
+
+
+        /*
+           NEW STATE
+        */
+
+        const state =
+
+            document
+                .getElementById(
+                    "profileState"
+                )
+                .value
+                .trim()
+                .toUpperCase();
+
+
+
+        /*
+           NAME REQUIRED
+        */
+
+        if(!name){
+
+            alert(
+                "Name खाली नहीं हो सकता."
+            );
+
+            return;
+
+        }
+
+
+
+        /*
+           STATE REQUIRED
+        */
+
+        if(
+            !/^[A-Z]{2}$/.test(state)
+        ){
+
+            alert(
+                "State Code 2 English letters होना चाहिए."
+            );
+
+            return;
+
+        }
+
+
+
+        /*
+           IMPORTANT
+
+           ID remains EXACTLY
+           the same.
+
+           Only name/state change.
+        */
+
+        const updatedProfile = {
+
+            id: profile.id,
+
+            name: name,
+
+            state: state,
+
+            createdAt:
+                profile.createdAt ||
+                Date.now(),
+
+            updatedAt:
+                Date.now()
+
+        };
+
+
+
+        /*
+           SAVE UPDATED PROFILE
+        */
+
+        localStorage.setItem(
+
+            STORAGE_KEY,
+
+            JSON.stringify(
+                updatedProfile
+            )
+
+        );
+
+
+
+        alert(
+
+            "Profile updated.\n\n" +
+            "Your PENCIL ID remains unchanged."
+
+        );
+
+
+
+        /*
+           Refresh profile UI
+        */
+
+        loadProfile();
+
+
+    }catch(error){
+
+
+        alert(
+            "Profile update error."
+        );
+
+    }
+
+}
+
+
+
+/* =========================================
+   ENTER PENCIL
+========================================= */
+
+function enterPencil(){
+
+
+    /*
+       Account check
+    */
+
+    if(
+        !localStorage.getItem(
+            STORAGE_KEY
+        )
+    ){
+
+        alert(
+            "पहले PENCIL ID create करें."
+        );
+
+        return;
+
+    }
+
+
+
+    /*
+       Main application
+    */
+
+    window.location.replace(
+        "index.html"
+    );
+
+}
+
+
+
+/* =========================================
+   RESET DEVICE IDENTITY
+========================================= */
+
+function logoutDevice(){
+
+
+    const ok =
+
+        confirm(
+
+            "WARNING\n\n" +
+
+            "Device identity reset करने पर " +
+            "यह PENCIL ID इस browser से हट जाएगी.\n\n" +
+
+            "क्या आप जारी रखना चाहते हैं?"
+
+        );
+
+
+
+    if(!ok){
+
+        return;
+
+    }
+
+
+
+    /*
+       Remove permanent identity
+    */
+
+    localStorage.removeItem(
+        STORAGE_KEY
+    );
+
+
+
+    /*
+       Reload login page
+    */
+
+    location.reload();
+
+}
+
+
+
+/* =========================================
+   START
+========================================= */
+
+loadProfile();
+
+
+</script>
+
+</body>
+
+  </html>
