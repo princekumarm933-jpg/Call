@@ -1,41 +1,36 @@
-/* =====================================================
-   PENCIL
-   Chat Manager
-   File: chat.js
-   ===================================================== */
+/* =========================================================
+   PENCIL CHAT MODULE
+   P2P FIRST → RELAY FALLBACK
+   ========================================================= */
 
 const ChatManager = {
 
     activeConnection: null,
     currentPeerId: null,
     typingTimeout: null,
-    reconnectTimer: null,
+    connectionTimeout: null,
 
 
-    /* =================================================
+    /* =====================================================
        OPEN CHAT
-       ================================================= */
+       ===================================================== */
 
     openChat(id) {
 
-        if (!id) {
-            return;
-        }
-
-        id = String(id).trim();
+        if (!id) return;
 
         const user = StorageManager.getUser();
 
-        // Cannot chat with yourself
         if (user && user.id === id) {
-            alert("You cannot open a chat with your own ID.");
+            alert("आप अपने ही ID से chat नहीं कर सकते।");
             return;
         }
 
         this.currentPeerId = id;
 
-        // Make sure contact exists
-        if (!StorageManager.getContact(id)) {
+        const contact = StorageManager.getContact(id);
+
+        if (!contact) {
             StorageManager.saveContact(
                 id,
                 "PENCIL User",
@@ -50,10 +45,6 @@ const ChatManager = {
         const chatView =
             document.getElementById("chatView");
 
-        const app =
-            document.getElementById("app");
-
-
         if (emptyState) {
             emptyState.style.display = "none";
         }
@@ -62,17 +53,16 @@ const ChatManager = {
             chatView.style.display = "flex";
         }
 
+        const app =
+            document.getElementById("app");
+
         if (app) {
             app.classList.add("chat-open");
         }
 
 
-        // Contact information
-        const contact =
-            StorageManager.getContact(id);
-
         const name =
-            contact?.name || "PENCIL User";
+            ContactManager.getContactName(id);
 
 
         const chatName =
@@ -100,25 +90,19 @@ const ChatManager = {
         }
 
 
-        // Load old messages first
         this.loadHistory(id);
 
-
-        // Connect to Peer
         this.connectToPeer(id);
     },
 
 
-    /* =================================================
+    /* =====================================================
        CLOSE CHAT
-       ================================================= */
+       ===================================================== */
 
     closeChat() {
 
         this.currentPeerId = null;
-
-        clearTimeout(this.typingTimeout);
-        clearTimeout(this.reconnectTimer);
 
         const app =
             document.getElementById("app");
@@ -141,24 +125,16 @@ const ChatManager = {
         if (emptyState) {
             emptyState.style.display = "flex";
         }
-
-
-        const typing =
-            document.getElementById("typing");
-
-        if (typing) {
-            typing.textContent = "";
-        }
     },
 
 
-    /* =================================================
+    /* =====================================================
        CONNECTION CHECK
-       ================================================= */
+       ===================================================== */
 
     isConnectionOpen(id) {
 
-        return !!(
+        return (
             this.activeConnection &&
             this.activeConnection.peer === id &&
             this.activeConnection.open
@@ -166,42 +142,33 @@ const ChatManager = {
     },
 
 
-    /* =================================================
-       CONNECT TO PEER
-       ================================================= */
+    /* =====================================================
+       CONNECT P2P
+       ===================================================== */
 
     connectToPeer(id) {
 
-        if (!id) {
-            return;
-        }
-
+        if (!id) return;
 
         if (this.isConnectionOpen(id)) {
 
             this.setChatStatus("online");
 
-            return;
-        }
-
-
-        if (
-            typeof App === "undefined" ||
-            !App.peer
-        ) {
-
-            this.setChatStatus("Peer unavailable");
+            ContactManager.setOnline(
+                id,
+                true
+            );
 
             return;
         }
 
 
-        // Prevent duplicate connection
-        if (
-            this.activeConnection &&
-            !this.activeConnection.open &&
-            this.activeConnection.peer === id
-        ) {
+        if (!App.peer) {
+
+            this.setChatStatus(
+                "Relay mode"
+            );
+
             return;
         }
 
@@ -209,66 +176,52 @@ const ChatManager = {
         try {
 
             const conn =
-                App.peer.connect(id, {
-                    reliable: true
-                });
+                App.peer.connect(
+                    id,
+                    {
+                        reliable: true
+                    }
+                );
 
             this.setupDataConnection(conn);
 
         } catch (error) {
 
-            console.error(
-                "Peer connection error:",
+            console.warn(
+                "P2P connection failed:",
                 error
             );
 
-            this.setChatStatus("Connection failed");
+            this.setChatStatus(
+                "Relay mode"
+            );
         }
     },
 
 
-    /* =================================================
-       SETUP DATA CONNECTION
-       ================================================= */
+    /* =====================================================
+       SETUP P2P CONNECTION
+       ===================================================== */
 
     setupDataConnection(conn) {
 
-        if (!conn) {
-            return;
-        }
+        if (!conn) return;
 
 
         this.activeConnection = conn;
 
 
-        // Make contact available
-        if (
-            !StorageManager.getContact(
-                conn.peer
-            )
-        ) {
-
-            StorageManager.saveContact(
-                conn.peer,
-                "PENCIL User",
-                "IN"
-            );
-        }
-
-
-        /* ---------------------------------------------
-           OPEN
-           --------------------------------------------- */
-
         conn.on("open", () => {
 
-            if (
-                this.currentPeerId ===
+            console.log(
+                "PENCIL P2P connected:",
                 conn.peer
-            ) {
+            );
 
-                this.setChatStatus("online");
-            }
+
+            this.setChatStatus(
+                "online"
+            );
 
 
             ContactManager.setOnline(
@@ -281,131 +234,14 @@ const ChatManager = {
         });
 
 
-        /* ---------------------------------------------
-           DATA
-           --------------------------------------------- */
+        conn.on("data", (data) => {
 
-        conn.on("data", data => {
-
-            if (!data || typeof data !== "object") {
-                return;
-            }
-
-
-            /* ---------- Text ---------- */
-
-            if (data.type === "CHAT_MSG") {
-
-                const text =
-                    Utils.cleanText(
-                        data.text,
-                        5000
-                    );
-
-
-                if (!text) {
-                    return;
-                }
-
-
-                StorageManager.saveMessage(
-                    conn.peer,
-                    "text",
-                    text,
-                    "received"
-                );
-
-
-                if (
-                    this.currentPeerId ===
-                    conn.peer
-                ) {
-
-                    this.renderMessage(
-                        {
-                            type: "text",
-                            content: text,
-                            time: Date.now()
-                        },
-                        "received"
-                    );
-                }
-            }
-
-
-            /* ---------- Typing ---------- */
-
-            else if (
-                data.type === "TYPING"
-            ) {
-
-                if (
-                    this.currentPeerId ===
-                    conn.peer
-                ) {
-
-                    const typing =
-                        document.getElementById(
-                            "typing"
-                        );
-
-                    if (typing) {
-
-                        typing.textContent =
-                            data.value
-                                ? "typing..."
-                                : "";
-                    }
-                }
-            }
-
-
-            /* ---------- Media ---------- */
-
-            else if (
-                data.type ===
-                "MEDIA_FILE"
-            ) {
-
-                const allowed =
-                    data.fileType === "image" ||
-                    data.fileType === "video";
-
-
-                if (!allowed || !data.data) {
-                    return;
-                }
-
-
-                StorageManager.saveMessage(
-                    conn.peer,
-                    data.fileType,
-                    data.data,
-                    "received"
-                );
-
-
-                if (
-                    this.currentPeerId ===
-                    conn.peer
-                ) {
-
-                    this.renderMessage(
-                        {
-                            type: data.fileType,
-                            content: data.data,
-                            time: Date.now()
-                        },
-                        "received"
-                    );
-                }
-            }
+            this.handleIncomingData(
+                conn.peer,
+                data
+            );
         });
 
-
-        /* ---------------------------------------------
-           CLOSE
-           --------------------------------------------- */
 
         conn.on("close", () => {
 
@@ -420,22 +256,17 @@ const ChatManager = {
                 conn.peer
             ) {
 
-                this.setChatStatus("offline");
+                this.setChatStatus(
+                    "offline • Relay available"
+                );
             }
-
-
-            ContactManager.renderList();
         });
 
 
-        /* ---------------------------------------------
-           ERROR
-           --------------------------------------------- */
+        conn.on("error", (error) => {
 
-        conn.on("error", error => {
-
-            console.error(
-                "Data connection error:",
+            console.warn(
+                "P2P error:",
                 error
             );
 
@@ -452,16 +283,137 @@ const ChatManager = {
             ) {
 
                 this.setChatStatus(
-                    "Connection error"
+                    "offline • Relay"
                 );
             }
         });
     },
 
 
-    /* =================================================
+    /* =====================================================
+       INCOMING P2P DATA
+       ===================================================== */
+
+    handleIncomingData(peerId, data) {
+
+        if (!data || !data.type) {
+            return;
+        }
+
+
+        /* -----------------------------------------------
+           TEXT
+           ----------------------------------------------- */
+
+        if (data.type === "CHAT_MSG") {
+
+            const text =
+                Utils.cleanText(
+                    data.text || ""
+                );
+
+            if (!text) return;
+
+
+            StorageManager.saveMessage(
+                peerId,
+                "text",
+                text,
+                "received"
+            );
+
+
+            if (
+                this.currentPeerId ===
+                peerId
+            ) {
+
+                this.renderMessage(
+                    {
+                        type: "text",
+                        content: text,
+                        time: Date.now()
+                    },
+                    "received"
+                );
+            }
+
+            return;
+        }
+
+
+        /* -----------------------------------------------
+           TYPING
+           ----------------------------------------------- */
+
+        if (data.type === "TYPING") {
+
+            if (
+                this.currentPeerId ===
+                peerId
+            ) {
+
+                const typing =
+                    document.getElementById(
+                        "typing"
+                    );
+
+                if (typing) {
+
+                    typing.textContent =
+                        data.value
+                            ? "typing..."
+                            : "";
+                }
+            }
+
+            return;
+        }
+
+
+        /* -----------------------------------------------
+           MEDIA
+           ----------------------------------------------- */
+
+        if (data.type === "MEDIA_FILE") {
+
+            if (
+                data.fileType !== "image" &&
+                data.fileType !== "video"
+            ) {
+                return;
+            }
+
+
+            StorageManager.saveMessage(
+                peerId,
+                data.fileType,
+                data.data,
+                "received"
+            );
+
+
+            if (
+                this.currentPeerId ===
+                peerId
+            ) {
+
+                this.renderMessage(
+                    {
+                        type: data.fileType,
+                        content: data.data,
+                        time: Date.now()
+                    },
+                    "received"
+                );
+            }
+        }
+    },
+
+
+    /* =====================================================
        CHAT STATUS
-       ================================================= */
+       ===================================================== */
 
     setChatStatus(status) {
 
@@ -476,9 +428,9 @@ const ChatManager = {
     },
 
 
-    /* =================================================
+    /* =====================================================
        ENSURE CONNECTION
-       ================================================= */
+       ===================================================== */
 
     ensureConnection(callback) {
 
@@ -498,72 +450,26 @@ const ChatManager = {
             )
         ) {
 
-            callback();
-
-            return;
-        }
-
-
-        this.connectToPeer(
-            this.currentPeerId
-        );
-
-
-        const connection =
-            this.activeConnection;
-
-
-        if (!connection) {
-
-            this.setChatStatus(
-                "Connecting..."
+            callback(
+                this.activeConnection
             );
 
             return;
         }
 
 
-        if (connection.open) {
+        /*
+         * P2P available नहीं है।
+         * Relay fallback इस्तेमाल होगा।
+         */
 
-            callback();
-
-            return;
-        }
-
-
-        connection.once(
-            "open",
-            callback
-        );
-
-
-        // Connection timeout
-        clearTimeout(
-            this.reconnectTimer
-        );
-
-
-        this.reconnectTimer =
-            setTimeout(() => {
-
-                if (
-                    !this.isConnectionOpen(
-                        this.currentPeerId
-                    )
-                ) {
-
-                    this.setChatStatus(
-                        "offline"
-                    );
-                }
-
-            }, 8000);
+        callback(null);
     },
 
 
-    /* =================================================
+    /* =====================================================
        SEND TEXT MESSAGE
-       ================================================= */
+       ===================================================== */
 
     sendMessage() {
 
@@ -573,33 +479,43 @@ const ChatManager = {
             );
 
 
-        if (!input) {
-            return;
-        }
+        if (!input) return;
 
 
         const text =
             Utils.cleanText(
-                input.value,
-                5000
+                input.value || ""
             );
 
 
-        if (!text) {
+        if (!text) return;
+
+
+        const receiverId =
+            this.currentPeerId;
+
+
+        if (!receiverId) {
+
+            alert(
+                "पहले contact चुनें।"
+            );
+
             return;
         }
 
 
-        this.ensureConnection(() => {
+        /*
+         * -----------------------------------------------
+         * P2P FIRST
+         * -----------------------------------------------
+         */
 
-            if (
-                !this.activeConnection ||
-                !this.activeConnection.open
-            ) {
-
-                return;
-            }
-
+        if (
+            this.isConnectionOpen(
+                receiverId
+            )
+        ) {
 
             try {
 
@@ -608,11 +524,12 @@ const ChatManager = {
                     type: "CHAT_MSG",
 
                     text: text
+
                 });
 
 
                 StorageManager.saveMessage(
-                    this.currentPeerId,
+                    receiverId,
                     "text",
                     text,
                     "sent"
@@ -633,30 +550,217 @@ const ChatManager = {
 
                 this.sendTyping(false);
 
+                return;
+
             } catch (error) {
 
-                console.error(
-                    "Send message error:",
+                console.warn(
+                    "P2P send failed:",
                     error
                 );
-
-                this.setChatStatus(
-                    "Send failed"
-                );
             }
-        });
+        }
+
+
+        /*
+         * -----------------------------------------------
+         * RELAY FALLBACK
+         * -----------------------------------------------
+         */
+
+        const relaySent =
+            RelayManager.sendMessage(
+                receiverId,
+                {
+                    type: "CHAT_MSG",
+                    text: text
+                }
+            );
+
+
+        /*
+         * Local history
+         */
+
+        StorageManager.saveMessage(
+            receiverId,
+            "text",
+            text,
+            "sent"
+        );
+
+
+        this.renderMessage(
+            {
+                type: "text",
+                content: text,
+                time: Date.now()
+            },
+            "sent"
+        );
+
+
+        input.value = "";
+
+        this.sendTyping(false);
+
+
+        if (relaySent) {
+
+            this.setChatStatus(
+                "sent via relay"
+            );
+
+        } else {
+
+            this.setChatStatus(
+                "queued • relay offline"
+            );
+        }
     },
 
 
-    /* =================================================
-       SEND TYPING
-       ================================================= */
+    /* =====================================================
+       RECEIVE RELAY MESSAGE
+       ===================================================== */
+
+    receiveRelayMessage(message) {
+
+        if (!message) return;
+
+
+        const senderId =
+            message.senderId;
+
+
+        if (!senderId) return;
+
+
+        const data =
+            message.data;
+
+
+        if (!data || !data.type) {
+            return;
+        }
+
+
+        /* -----------------------------------------------
+           TEXT
+           ----------------------------------------------- */
+
+        if (
+            data.type ===
+            "CHAT_MSG"
+        ) {
+
+            const text =
+                Utils.cleanText(
+                    data.text || ""
+                );
+
+
+            if (!text) return;
+
+
+            StorageManager.saveMessage(
+                senderId,
+                "text",
+                text,
+                "received"
+            );
+
+
+            /*
+             * Contact automatically create
+             */
+
+            StorageManager.saveContact(
+                senderId,
+                ContactManager.getContactName(
+                    senderId
+                ),
+                "IN"
+            );
+
+
+            if (
+                this.currentPeerId ===
+                senderId
+            ) {
+
+                this.renderMessage(
+                    {
+                        type: "text",
+                        content: text,
+                        time: Date.now()
+                    },
+                    "received"
+                );
+
+
+                this.setChatStatus(
+                    "online"
+                );
+            }
+
+            return;
+        }
+
+
+        /* -----------------------------------------------
+           MEDIA
+           ----------------------------------------------- */
+
+        if (
+            data.type ===
+            "MEDIA_FILE"
+        ) {
+
+            if (
+                data.fileType !== "image" &&
+                data.fileType !== "video"
+            ) {
+                return;
+            }
+
+
+            StorageManager.saveMessage(
+                senderId,
+                data.fileType,
+                data.data,
+                "received"
+            );
+
+
+            if (
+                this.currentPeerId ===
+                senderId
+            ) {
+
+                this.renderMessage(
+                    {
+                        type: data.fileType,
+                        content: data.data,
+                        time: Date.now()
+                    },
+                    "received"
+                );
+            }
+        }
+    },
+
+
+    /* =====================================================
+       TYPING
+       ===================================================== */
 
     sendTyping(value) {
 
         if (
-            this.activeConnection &&
-            this.activeConnection.open
+            this.isConnectionOpen(
+                this.currentPeerId
+            )
         ) {
 
             try {
@@ -665,23 +769,29 @@ const ChatManager = {
 
                     type: "TYPING",
 
-                    value: !!value
+                    value: value
+
                 });
 
             } catch (error) {
 
-                console.error(
-                    "Typing error:",
+                console.warn(
+                    "Typing send error:",
                     error
                 );
             }
         }
+
+        /*
+         * Typing indicator intentionally
+         * relay नहीं किया गया है।
+         */
     },
 
 
-    /* =================================================
-       TYPING INPUT
-       ================================================= */
+    /* =====================================================
+       HANDLE TYPING INPUT
+       ===================================================== */
 
     handleTypingInput() {
 
@@ -702,36 +812,66 @@ const ChatManager = {
     },
 
 
-    /* =================================================
+    /* =====================================================
        SEND MEDIA
-       ================================================= */
+       ===================================================== */
 
     sendMedia(file) {
 
-        if (!file) {
-            return;
-        }
+        if (!file) return;
 
 
-        // 8 MB limit
-        const MAX_SIZE =
-            8 * 1024 * 1024;
+        const receiverId =
+            this.currentPeerId;
 
 
-        if (file.size > MAX_SIZE) {
+        if (!receiverId) {
 
             alert(
-                "Media file 8MB से कम रखें।"
+                "पहले contact चुनें।"
             );
 
             return;
         }
 
 
+        /*
+         * 8 MB limit
+         */
+
         if (
-            !Utils.isImage(file) &&
-            !Utils.isVideo(file)
+            file.size >
+            8 * 1024 * 1024
         ) {
+
+            alert(
+                "Media 8MB से कम रखें।"
+            );
+
+            return;
+        }
+
+
+        /*
+         * Only image/video
+         */
+
+        let fileType = null;
+
+
+        if (
+            Utils.isImage(file)
+        ) {
+
+            fileType = "image";
+
+        } else if (
+            Utils.isVideo(file)
+        ) {
+
+            fileType = "video";
+
+        } else {
 
             alert(
                 "केवल image या video भेज सकते हैं।"
@@ -741,49 +881,43 @@ const ChatManager = {
         }
 
 
-        const fileType =
-            Utils.isImage(file)
-                ? "image"
-                : "video";
+        const reader =
+            new FileReader();
 
 
-        this.ensureConnection(() => {
+        reader.onload = () => {
 
-            const reader =
-                new FileReader();
+            const data = {
+
+                type: "MEDIA_FILE",
+
+                fileType: fileType,
+
+                data: reader.result
+            };
 
 
-            reader.onload = () => {
+            /*
+             * P2P FIRST
+             */
 
-                if (
-                    !this.activeConnection ||
-                    !this.activeConnection.open
-                ) {
-
-                    return;
-                }
-
+            if (
+                this.isConnectionOpen(
+                    receiverId
+                )
+            ) {
 
                 try {
 
-                    const data =
-                        reader.result;
-
-
-                    this.activeConnection.send({
-
-                        type: "MEDIA_FILE",
-
-                        fileType: fileType,
-
-                        data: data
-                    });
+                    this.activeConnection.send(
+                        data
+                    );
 
 
                     StorageManager.saveMessage(
-                        this.currentPeerId,
+                        receiverId,
                         fileType,
-                        data,
+                        reader.result,
                         "sent"
                     );
 
@@ -791,42 +925,76 @@ const ChatManager = {
                     this.renderMessage(
                         {
                             type: fileType,
-                            content: data,
+                            content: reader.result,
                             time: Date.now()
                         },
                         "sent"
                     );
 
+
+                    return;
+
                 } catch (error) {
 
-                    console.error(
-                        "Media send error:",
+                    console.warn(
+                        "P2P media failed:",
                         error
                     );
-
-                    alert(
-                        "Media भेजने में समस्या हुई।"
-                    );
                 }
-            };
+            }
 
 
-            reader.onerror = () => {
+            /*
+             * RELAY FALLBACK
+             */
 
-                alert(
-                    "File read नहीं हो सकी।"
+            const relaySent =
+                RelayManager.sendMessage(
+                    receiverId,
+                    data
                 );
-            };
 
 
-            reader.readAsDataURL(file);
-        });
+            StorageManager.saveMessage(
+                receiverId,
+                fileType,
+                reader.result,
+                "sent"
+            );
+
+
+            this.renderMessage(
+                {
+                    type: fileType,
+                    content: reader.result,
+                    time: Date.now()
+                },
+                "sent"
+            );
+
+
+            if (relaySent) {
+
+                this.setChatStatus(
+                    "media sent via relay"
+                );
+
+            } else {
+
+                this.setChatStatus(
+                    "media queued"
+                );
+            }
+        };
+
+
+        reader.readAsDataURL(file);
     },
 
 
-    /* =================================================
+    /* =====================================================
        LOAD CHAT HISTORY
-       ================================================= */
+       ===================================================== */
 
     loadHistory(id) {
 
@@ -836,16 +1004,16 @@ const ChatManager = {
             );
 
 
-        if (!box) {
-            return;
-        }
+        if (!box) return;
 
 
         box.innerHTML = "";
 
 
         const history =
-            StorageManager.getChatHistory(id);
+            StorageManager.getChatHistory(
+                id
+            );
 
 
         history.forEach(item => {
@@ -854,169 +1022,16 @@ const ChatManager = {
                 item,
                 item.direction
             );
+
         });
     },
 
 
-    /* =================================================
+    /* =====================================================
        RENDER MESSAGE
-       ================================================= */
+       ===================================================== */
 
     renderMessage(item, direction) {
 
-        if (!item || !this.currentPeerId) {
-            return;
-        }
-
-
-        const box =
-            document.getElementById(
-                "messages"
-            );
-
-
-        if (!box) {
-            return;
-        }
-
-
-        const bubble =
-            document.createElement("div");
-
-
-        bubble.className =
-            "message " +
-            (
-                direction === "received"
-                    ? "received"
-                    : "sent"
-            );
-
-
-        /* ---------- Text ---------- */
-
-        if (item.type === "text") {
-
-            // textContent = safe
-            bubble.textContent =
-                String(
-                    item.content ?? ""
-                );
-        }
-
-
-        /* ---------- Image ---------- */
-
-        else if (
-            item.type === "image"
-        ) {
-
-            const img =
-                document.createElement("img");
-
-
-            img.src =
-                String(item.content || "");
-
-
-            img.alt =
-                "Image";
-
-
-            img.loading =
-                "lazy";
-
-
-            bubble.appendChild(img);
-        }
-
-
-        /* ---------- Video ---------- */
-
-        else if (
-            item.type === "video"
-        ) {
-
-            const video =
-                document.createElement("video");
-
-
-            video.src =
-                String(item.content || "");
-
-
-            video.controls = true;
-
-            video.preload = "metadata";
-
-
-            bubble.appendChild(video);
-        }
-
-
-        else {
-
-            return;
-        }
-
-
-        /* ---------- Time ---------- */
-
-        const small =
-            document.createElement("small");
-
-
-        small.textContent =
-            Utils.formatTime(
-                item.time
-            );
-
-
-        bubble.appendChild(small);
-
-
-        box.appendChild(bubble);
-
-
-        // Scroll to latest message
-        box.scrollTop =
-            box.scrollHeight;
-    },
-
-
-    /* =================================================
-       CLEAR CURRENT CHAT
-       ================================================= */
-
-    clearCurrentChat() {
-
-        if (!this.currentPeerId) {
-            return false;
-        }
-
-
-        const confirmed =
-            confirm(
-                "इस chat की पूरी history delete करें?"
-            );
-
-
-        if (!confirmed) {
-            return false;
-        }
-
-
-        StorageManager.clearChat(
-            this.currentPeerId
-        );
-
-
-        this.loadHistory(
-            this.currentPeerId
-        );
-
-
-        return true;
-    }
-
-};
+        if (
+     
